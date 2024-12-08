@@ -610,7 +610,11 @@ export const instrument = ({
 
 let canvas: HTMLCanvasElement | null = null;
 let ctx: CanvasRenderingContext2D | null = null;
-const visualizedElements: Array<{ stateNode: HTMLElement }> = [];
+const visualizedElements: Array<{
+  stateNode: HTMLElement;
+  displayName: string;
+  color: string;
+}> = [];
 
 // Initialize canvas if not already initialized
 if (canvas === null) {
@@ -648,19 +652,19 @@ function updateCanvas() {
   if (canvas && ctx) {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     // Re-draw the visualized elements
-    visualizedElements.forEach(({ stateNode }) => {
+    visualizedElements.forEach(({ stateNode, color, displayName }) => {
       const rect = stateNode.getBoundingClientRect();
 
-      ctx.strokeStyle = 'red';
+      ctx.strokeStyle = color;
       ctx.lineWidth = 2;
       ctx.strokeRect(rect.left, rect.top, rect.width, rect.height);
 
       // Draw the innerText with white text on red background
       ctx.font = '12px Arial';
-      const text = stateNode.innerText;
+      const text = displayName;
       const textWidth = ctx.measureText(text).width;
       const textHeight = 16; // approximate height
-      ctx.fillStyle = 'red'; // background color
+      ctx.fillStyle = color; // background color
       ctx.fillRect(rect.left, rect.top, textWidth + 10, textHeight);
       ctx.fillStyle = 'white'; // text color
       ctx.fillText(text, rect.left + 5, rect.top + 12);
@@ -673,23 +677,38 @@ instrument({
     // Clear the previous elements array
     visualizedElements.length = 0;
 
-    traverseFiber(root.current, (fiber) => {
-      if (
-        isHostFiber(fiber) &&
-        fiber.memoizedProps &&
-        typeof fiber.memoizedProps === 'object' &&
-        fiber.stateNode instanceof HTMLElement &&
-        typeof fiber.type === 'string'
-      ) {
-        if ('onClick' in fiber.memoizedProps) {
-          const stateNode = fiber.stateNode;
+    let classComponentCount = 0;
+    let allComponentCount = 0;
 
-          // Add to visualized elements
-          visualizedElements.push({ stateNode });
-        }
+    traverseFiber(root.current, (fiber) => {
+      if (isCompositeFiber(fiber)) {
+        allComponentCount++;
+        const isClassComponent = fiber.tag === ClassComponentTag;
+        if (isClassComponent) classComponentCount++;
+        if (!isClassComponent) return;
+        const displayName = getDisplayName(fiber);
+        traverseFiber(fiber, (fiber) => {
+          if (isHostFiber(fiber)) {
+            const stateNode = fiber.stateNode;
+
+            // Add to visualized elements
+            visualizedElements.push({
+              stateNode,
+              displayName: displayName ?? '',
+              color: isClassComponent ? 'red' : 'green',
+            });
+          }
+        });
       }
     });
 
     updateCanvas();
+
+    // setTimeout(() => {
+    //   // eslint-disable-next-line no-alert
+    //   alert(
+    //     `Your page is ${((classComponentCount / allComponentCount) * 100).toFixed(0)} % class components (${classComponentCount} / ${allComponentCount})`,
+    //   );
+    // }, 1000);
   },
 });
