@@ -3,7 +3,7 @@ import {
   createFiberVisitor,
   getTimings,
   getDisplayName,
-  didFiberCommit,
+  getFiberMutations,
 } from 'bippy'; // must be imported BEFORE react
 import React, { useState } from 'react';
 import ReactDOM from 'react-dom/client';
@@ -32,8 +32,9 @@ const visitor = createFiberVisitor({
     componentRenderMap.set(componentType, render);
     console.log(phase, fiber, render);
 
-    if (didFiberCommit(fiber)) {
-      console.log('didFiberCommit', fiber.type);
+    const mutations = getFiberMutations(fiber);
+    if (mutations.length > 0) {
+      console.log('mutations', mutations);
     }
   },
 });
@@ -51,17 +52,18 @@ export const getRenderInfo = (componentType) => {
 function App() {
   const [count, setCount] = useState(0);
   const renderInfo = getRenderInfo(App);
+
   return (
     <>
       <p>
         <a
           href="https://github.com/aidenybai/bippy"
-          style={{ fontFamily: 'monospace' }}
+          // style={{ fontFamily: 'monospace' }}
         >
           view source ↗
         </a>
       </p>
-      {<CountDisplay count={count} />}
+      <CountDisplay count={count} />
       <button onClick={() => setCount(count + 1)}>
         <pre style={{ textAlign: 'left' }}>
           rendered: {JSON.stringify(renderInfo, null, 2)}

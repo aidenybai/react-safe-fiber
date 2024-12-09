@@ -4,6 +4,8 @@
 
 import type * as React from 'react';
 import type { Fiber, FiberRoot } from 'react-reconciler';
+// @ts-expect-error: it exists
+import getSelector from 'get-selector';
 
 export const ClassComponentTag = 1;
 export const FunctionComponentTag = 0;
@@ -178,16 +180,32 @@ export const didFiberRender = (fiber: Fiber): boolean => {
   }
 };
 
-export const didFiberCommit = (fiber: Fiber): boolean => {
-  if (isHostFiber(fiber) && fiber.flags & (MutationMask | Cloned)) {
-    return true;
+export const getFiberMutations = (fiber: Fiber): Array<Fiber> => {
+  if (!(fiber.subtreeFlags & (MutationMask | Cloned)) && !fiber.deletions) {
+    return [];
   }
-  for (let sibling = fiber.sibling; sibling; sibling = sibling.sibling) {
-    if (isHostFiber(sibling) && didFiberCommit(sibling)) return true;
-  }
-  return Boolean(
-    fiber.child && isHostFiber(fiber.child) && didFiberCommit(fiber.child),
-  );
+  const getMutations = (fiber: Fiber | null) => {
+    if (!fiber) return [];
+
+    const mutations: Array<Fiber> = [];
+    for (let sibling = fiber.sibling; sibling; sibling = sibling.sibling) {
+      if (isHostFiber(sibling) && didFiberRender(sibling)) {
+        mutations.push(sibling);
+        mutations.push(...getMutations(sibling));
+      }
+    }
+    // FIXME: this only goes 1 level deep (pre tag)
+    if (
+      fiber.child &&
+      isHostFiber(fiber.child) &&
+      didFiberRender(fiber.child)
+    ) {
+      mutations.push(fiber.child);
+      mutations.push(...getMutations(fiber.child));
+    }
+    return mutations;
+  };
+  return getMutations(fiber.child);
 };
 
 export const shouldFilterFiber = (fiber: Fiber) => {
@@ -639,3 +657,49 @@ export const instrument = ({
 
   return devtoolsHook;
 };
+
+const summary: Record<string, { count: number; selector?: string }> = {};
+
+const getFiberStack = (fiber: Fiber) => {
+  const stack: Array<Fiber> = [];
+  while (fiber.return) {
+    stack.push(fiber);
+    fiber = fiber.return;
+  }
+  return stack;
+};
+
+(globalThis as any).ReactScanSummary = summary;
+
+const visitor = createFiberVisitor({
+  onRender: (fiber) => {
+    if (isCompositeFiber(fiber)) {
+      const stack = getFiberStack(fiber).filter(isCompositeFiber);
+
+      const namedStack = stack
+        .reverse()
+        .map((fiber) => getDisplayName(fiber.type)) as Array<string>;
+
+      const namedPath = namedStack.join(' > ');
+
+      const nearestHostFiber = getNearestHostFiber(fiber);
+
+      const selector = nearestHostFiber?.stateNode
+        ? getSelector(nearestHostFiber.stateNode)
+        : undefined;
+
+      if (namedPath) {
+        summary[namedPath] = {
+          count: (summary[namedPath]?.count ?? 0) + 1,
+          selector,
+        };
+      }
+    }
+  },
+});
+
+instrument({
+  onCommitFiberRoot: (_rendererID, root) => {
+    visitor(_rendererID, root);
+  },
+});

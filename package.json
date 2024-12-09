@@ -71,5 +71,8 @@
   },
   "publishConfig": {
     "access": "public"
+  },
+  "dependencies": {
+    "get-selector": "^1.0.4"
   }
 }
