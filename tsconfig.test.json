@@ -1,0 +1,16 @@
+{
+  "extends": "./tsconfig.json",
+  "include": [
+    "src/**/*",
+    "__tests__/**/*",
+    "*.config.ts"
+  ],
+  "compilerOptions": {
+    "types": [
+      "vitest/globals",
+      "node"
+    ],
+    "module": "ESNext",
+    "moduleResolution": "Bundler"
+  }
+}

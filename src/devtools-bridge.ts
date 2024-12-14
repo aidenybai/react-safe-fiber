@@ -8,6 +8,9 @@ const NO_OP = (): void => {
 
 interface DevToolsRenderer {
   findFiberByHostInstance: (element: HTMLElement) => Fiber | null;
+  bundleType?: number;
+  version?: string;
+  rendererPackageName?: string;
 }
 
 interface Hook {

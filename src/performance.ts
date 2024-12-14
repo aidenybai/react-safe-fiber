@@ -92,21 +92,45 @@ const getTimingKey = (node: VNode | any): any => {
 };
 
 // Memoized tree duration calculation
-const calculateTreeDuration = (node: VNode | any): number => {
+export const calculateTreeDuration = (
+  node: VNode | any,
+  visited: Set<any> = new Set()
+): number => {
   try {
-    if (!node) return 0;
+    if (!node || visited.has(node)) return 0;
+    visited.add(node);
 
     // Check memoized value
     const memoized = memoizedTreeDurations.get(node);
     if (memoized !== undefined) return memoized;
 
     const selfTime = (node.actualDuration || 0) as number;
-    const childTime = (node.child ? calculateTreeDuration(node.child) : 0);
-    const siblingTime = (node.sibling ? calculateTreeDuration(node.sibling) : 0);
+    let totalTime = selfTime;
 
-    const total = selfTime + childTime + siblingTime;
-    memoizedTreeDurations.set(node, total);
-    return total;
+    // Handle children in props
+    if (node.props?.children) {
+      const children = Array.isArray(node.props.children)
+        ? node.props.children
+        : [node.props.children];
+
+      for (const child of children) {
+        if (child && typeof child === 'object') {
+          totalTime += calculateTreeDuration(child, visited);
+        }
+      }
+    }
+
+    // Handle direct child/sibling references
+    if (node.child) {
+      totalTime += calculateTreeDuration(node.child, visited);
+    }
+    if (node.sibling) {
+      totalTime += calculateTreeDuration(node.sibling, visited);
+    }
+
+    // Memoize the result
+    memoizedTreeDurations.set(node, totalTime);
+    return totalTime;
   } catch (e) {
     return 0;
   }

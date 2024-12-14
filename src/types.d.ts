@@ -1,4 +1,4 @@
-// import { type Fiber } from 'react-reconciler';
+import type { DevToolsRenderer } from './devtools-bridge';
 
 declare global {
   interface Window {
@@ -12,7 +12,9 @@ declare global {
       onPostCommitFiberRoot: (id: number, root: unknown) => void;
       inject: (renderer: unknown) => number;
     };
+    performance: Performance;
   }
+  let performance: Performance;
 }
 
 declare module 'preact' {

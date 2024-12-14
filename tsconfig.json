@@ -9,11 +9,15 @@
     "forceConsistentCasingInFileNames": true,
     "outDir": "./dist",
     "declaration": true,
-    "jsx": "react-jsx"
+    "jsx": "react-jsx",
+    "types": [
+      "vitest/globals"
+    ]
   },
   "include": [
     "src/**/*",
-    "__tests__/**/*"
+    "__tests__/**/*",
+    "*.config.ts"
   ],
   "exclude": [
     "node_modules",
