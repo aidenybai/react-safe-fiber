@@ -377,7 +377,7 @@ export const getRDTHook = () => {
       renderers.set(nextID, renderer);
       return nextID;
     },
-    instrumentation: 'bippy',
+    _instrumentationSource: 'bippy',
   };
   try {
     // sometimes this is a getter
