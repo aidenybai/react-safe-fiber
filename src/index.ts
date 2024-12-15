@@ -616,7 +616,7 @@ export const createFiberVisitor = ({
 
     const { prevFiber } = rootInstance;
     try {
-      // if fiberNode don't have current instance, means it's been unmounted
+      // if fiberRoot don't have current instance, means it's been unmounted
       if (!rootFiber) {
         unmountFiber(onRender, root);
       } else if (prevFiber !== null) {
