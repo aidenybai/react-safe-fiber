@@ -169,7 +169,13 @@ export const traverseProps = (
   try {
     const nextProps = fiber.memoizedProps;
     const prevProps = fiber.alternate?.memoizedProps || {};
-    for (const propName in { ...prevProps, ...nextProps }) {
+
+    const allKeys = new Set([
+      ...Object.keys(prevProps),
+      ...Object.keys(nextProps),
+    ]);
+
+    for (const propName of allKeys) {
       const prevValue = prevProps?.[propName];
       const nextValue = nextProps?.[propName];
 
