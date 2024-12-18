@@ -174,8 +174,9 @@ export const traverseState = (
 export const traverseProps = (
   fiber: Fiber,
   selector: (
-    prevValue: unknown,
+    propName: string,
     nextValue: unknown,
+    prevValue: unknown,
     // eslint-disable-next-line @typescript-eslint/no-invalid-void-type
   ) => boolean | void,
 ) => {
@@ -192,7 +193,7 @@ export const traverseProps = (
       const prevValue = prevProps?.[propName];
       const nextValue = nextProps?.[propName];
 
-      if (selector(prevValue, nextValue) === true) return true;
+      if (selector(propName, nextValue, prevValue) === true) return true;
     }
   } catch {
     /**/

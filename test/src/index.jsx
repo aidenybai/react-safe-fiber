@@ -3,43 +3,45 @@ import {
   isHostFiber,
   getNearestHostFiber,
   createFiberVisitor,
+  isCompositeFiber,
+  getDisplayName,
+  traverseFiber,
+  traverseProps,
 } from 'bippy'; // must be imported BEFORE react
 import React, { useState } from 'react';
 import ReactDOM from 'react-dom/client';
 
-const highlightFiber = (fiber) => {
-  if (!(fiber.stateNode instanceof HTMLElement)) return;
+const components = {};
 
-  const rect = fiber.stateNode.getBoundingClientRect();
-  const highlight = document.createElement('div');
-  highlight.style.border = '1px solid red';
-  highlight.style.position = 'fixed';
-  highlight.style.top = `${rect.top}px`;
-  highlight.style.left = `${rect.left}px`;
-  highlight.style.width = `${rect.width}px`;
-  highlight.style.height = `${rect.height}px`;
-  highlight.style.zIndex = 999999999;
-  document.documentElement.appendChild(highlight);
-  setTimeout(() => {
-    document.documentElement.removeChild(highlight);
-  }, 100);
-};
-
-const visit = createFiberVisitor({
-  onRender(fiber) {
-    if (isHostFiber(fiber)) {
-      highlightFiber(fiber);
-    } else {
-      // can be a component
-      const hostFiber = getNearestHostFiber(fiber);
-      highlightFiber(hostFiber);
-    }
-  },
-});
+window.components = components;
 
 instrument({
   onCommitFiberRoot(rendererID, root) {
-    visit(rendererID, root);
+    traverseFiber(root.current, (fiber) => {
+      if (isCompositeFiber(fiber)) {
+        const displayName = getDisplayName(fiber);
+        const hostFiber = getNearestHostFiber(fiber);
+        if (!hostFiber) return;
+
+        const listeners = [];
+
+        traverseFiber(fiber, (innerFiber) => {
+          if (isHostFiber(innerFiber)) {
+            traverseProps(innerFiber, (propName, value) => {
+              if (propName.startsWith('on')) {
+                listeners.push(value);
+              }
+            });
+          }
+        });
+
+        components[displayName] = {
+          fiber,
+          element: hostFiber.stateNode,
+          listeners,
+        };
+      }
+    });
   },
 });
 
@@ -56,8 +58,8 @@ function TodoList() {
   const toggleComplete = (index) => {
     setTodos(
       todos.map((todo, i) =>
-        i === index ? { ...todo, completed: !todo.completed } : todo
-      )
+        i === index ? { ...todo, completed: !todo.completed } : todo,
+      ),
     );
   };
 
