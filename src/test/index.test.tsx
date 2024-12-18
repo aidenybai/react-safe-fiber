@@ -8,7 +8,7 @@ import {
   isHostFiber,
   isValidElement,
 } from '../index.js';
-import React from 'react';
+import React, { act } from 'react';
 import ReactDOM from 'react-dom/client';
 import { FiberRoot } from 'react-reconciler';
 import { vi } from 'vitest';
@@ -25,7 +25,9 @@ import {
   traverseContexts,
 } from '../index.js';
 import type { Fiber } from 'react-reconciler';
-import { act } from 'react-dom/test-utils';
+
+// @ts-expect-error https://github.com/testing-library/react-testing-library/issues/1061#issuecomment-1117450890
+globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
 const sleep = (ms: number) =>
   new Promise<void>((resolve) => setTimeout(() => resolve(), ms));

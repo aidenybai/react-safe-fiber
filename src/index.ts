@@ -5,11 +5,17 @@
 import type * as React from 'react';
 import type { Fiber, FiberRoot } from 'react-reconciler';
 
+// https://github.com/facebook/react/blob/6a4b46cd70d2672bc4be59dcb5b8dede22ed0cef/packages/react-devtools-shared/src/backend/types.js
+export interface ReactRenderer {
+  version: string;
+  bundleType: 0 /* PROD */ | 1 /* DEV */;
+}
+
 export interface ReactDevToolsGlobalHook {
-  checkDCE: () => void;
+  checkDCE: (fn: any) => void;
   supportsFiber: boolean;
   supportsFlight: boolean;
-  renderers: Map<number, unknown>;
+  renderers: Map<number, ReactRenderer>;
   onCommitFiberRoot: (
     rendererID: number,
     root: unknown,
@@ -19,6 +25,7 @@ export interface ReactDevToolsGlobalHook {
   onPostCommitFiberRoot: (rendererID: number, root: unknown) => void;
   inject: (renderer: unknown) => number;
   _instrumentationSource?: string;
+  _instrumentationIsActive?: boolean;
 }
 
 export const ClassComponentTag = 1;
@@ -69,8 +76,14 @@ export const isValidElement = (
   typeof element === 'object' &&
   element != null &&
   '$$typeof' in element &&
-  String(element.$$typeof) === 'Symbol(react.element)';
+  // react 18 uses Symbol.for('react.element'), react 19 uses Symbol.for('react.transitional.element')
+  ['Symbol(react.element)', 'Symbol(react.transitional.element)'].includes(
+    String(element.$$typeof),
+  );
 
+/**
+ * Host fibers are DOM nodes in react-dom, `View` in react-native, etc.
+ */
 export const isHostFiber = (fiber: Fiber) =>
   fiber.tag === HostComponentTag ||
   // @ts-expect-error: it exists
@@ -78,7 +91,11 @@ export const isHostFiber = (fiber: Fiber) =>
   // @ts-expect-error: it exists
   fiber.tag === HostSingletonTag;
 
-// https://github.com/facebook/react/blob/865d2c418d5ba6fb4546e4b58616cd9b7701af85/packages/react/src/jsx/ReactJSXElement.js#L490
+/**
+ * Composite fibers are functional, class components, etc.
+ *
+ * @see https://github.com/facebook/react/blob/865d2c418d5ba6fb4546e4b58616cd9b7701af85/packages/react/src/jsx/ReactJSXElement.js#L490
+ */
 export const isCompositeFiber = (fiber: Fiber) =>
   fiber.tag === FunctionComponentTag ||
   fiber.tag === ClassComponentTag ||
@@ -165,7 +182,13 @@ export const traverseProps = (
   try {
     const nextProps = fiber.memoizedProps;
     const prevProps = fiber.alternate?.memoizedProps || {};
-    for (const propName in { ...prevProps, ...nextProps }) {
+
+    const allKeys = new Set([
+      ...Object.keys(prevProps),
+      ...Object.keys(nextProps),
+    ]);
+
+    for (const propName of allKeys) {
       const prevValue = prevProps?.[propName];
       const nextValue = nextProps?.[propName];
 
@@ -202,6 +225,9 @@ export const didFiberRender = (fiber: Fiber): boolean => {
   }
 };
 
+/**
+ * A commit is means reconciliation occured and the host tree is updated
+ */
 export const didFiberCommit = (fiber: Fiber): boolean => {
   return Boolean(
     (fiber.flags & (Update | Placement | ChildDeletion)) !== 0 ||
@@ -211,26 +237,20 @@ export const didFiberCommit = (fiber: Fiber): boolean => {
 
 export const getMutatedHostFibers = (fiber: Fiber): Array<Fiber> => {
   const mutations: Array<Fiber> = [];
-  const visited = new WeakSet<Fiber>();
+  const stack: Fiber[] = [fiber];
 
-  const traverse = (node: Fiber) => {
-    if (!node || visited.has(node)) return;
-    visited.add(node);
+  while (stack.length) {
+    const node = stack.pop();
+    if (!node) continue;
 
     if (isHostFiber(node) && didFiberCommit(node) && didFiberRender(node)) {
       mutations.push(node);
     }
 
-    if (node.child) {
-      traverse(node.child);
-    }
+    if (node.child) stack.push(node.child);
+    if (node.sibling) stack.push(node.sibling);
+  }
 
-    if (node.sibling) {
-      traverse(node.sibling);
-    }
-  };
-
-  traverse(fiber);
   return mutations;
 };
 
@@ -356,16 +376,47 @@ export const getDisplayName = (type: any): string | null => {
   return type.displayName || type.name || null;
 };
 
+export const isUsingRDT = () =>
+  globalThis.__REACT_DEVTOOLS_BACKEND_MANAGER_INJECTED__ != null;
+
+export const detectReactBuildType = (renderer: ReactRenderer) => {
+  try {
+    if (typeof renderer.version === 'string' && renderer.bundleType > 0) {
+      return 'development';
+    }
+  } catch {
+    /**/
+  }
+  return 'production';
+};
+
+const checkDCE = (fn: any) => {
+  try {
+    const code = Function.prototype.toString.call(fn);
+    if (code.indexOf('^_^') > -1) {
+      setTimeout(() => {
+        throw new Error(
+          'React is running in production mode, but dead code ' +
+            'elimination has not been applied. Read how to correctly ' +
+            'configure React for production: ' +
+            'https://reactjs.org/link/perf-use-production-build',
+        );
+      });
+    }
+  } catch {
+    /**/
+  }
+};
+
 const NO_OP = () => {
   /**/
 };
 
-export const getRDTHook = () => {
-  let rdtHook = globalThis.__REACT_DEVTOOLS_GLOBAL_HOOK__;
+export const installRDTHook = (onActive?: () => unknown) => {
   const renderers = new Map();
   let i = 0;
-  rdtHook ??= {
-    checkDCE: NO_OP,
+  const rdtHook: ReactDevToolsGlobalHook = {
+    checkDCE,
     supportsFiber: true,
     supportsFlight: true,
     renderers,
@@ -375,30 +426,46 @@ export const getRDTHook = () => {
     inject(renderer) {
       const nextID = ++i;
       renderers.set(nextID, renderer);
+      if (!rdtHook._instrumentationIsActive) {
+        rdtHook._instrumentationIsActive = true;
+        onActive?.();
+      }
       return nextID;
     },
     _instrumentationSource: 'bippy',
+    _instrumentationIsActive: false,
   };
   try {
-    // sometimes this is a getter
-    globalThis.__REACT_DEVTOOLS_GLOBAL_HOOK__ = rdtHook;
+    Object.defineProperty(globalThis, '__REACT_DEVTOOLS_GLOBAL_HOOK__', {
+      configurable: true,
+      value: rdtHook,
+    });
   } catch {
-    /**/
+    // this will fail if RDT already installed the hook
   }
   return rdtHook;
 };
 
-// __REACT_DEVTOOLS_GLOBAL_HOOK__ must exist before React is ever executed
-// this is the case with the React Devtools extension, but without it, we need
-if (typeof window !== 'undefined') {
-  getRDTHook();
-}
+export const getRDTHook = (onActive?: () => unknown) => {
+  let rdtHook = globalThis.__REACT_DEVTOOLS_GLOBAL_HOOK__;
+  if (rdtHook) onActive?.();
+
+  if (!window.hasOwnProperty('__REACT_DEVTOOLS_GLOBAL_HOOK__')) {
+    rdtHook = installRDTHook(onActive);
+  }
+  return rdtHook;
+};
+
+export const isInstrumentationActive = () => {
+  const rdtHook = getRDTHook();
+  return Boolean(rdtHook._instrumentationIsActive) || isUsingRDT();
+};
 
 type RenderHandler = <S>(
   fiber: Fiber,
   phase: 'mount' | 'update' | 'unmount',
   state?: S,
-) => void;
+) => unknown;
 
 export const mountFiberRecursively = (
   onRender: RenderHandler,
@@ -595,12 +662,22 @@ const rootInstanceMap = new WeakMap<
   }
 >();
 
+/**
+ * Creates a fiber visitor function.
+ * @param options { onRender, onError }
+ * @example
+ * const visitor = createFiberVisitor({
+ *   onRender(fiber, phase) {
+ *     console.log(phase)
+ *   },
+ * });
+ */
 export const createFiberVisitor = ({
   onRender: onRenderWithoutState,
   onError,
 }: {
   onRender: RenderHandler;
-  onError?: (error: unknown) => void;
+  onError?: (error: unknown) => unknown;
 }) => {
   return <S>(_rendererID: number, root: FiberRoot, state?: S) => {
     const rootFiber = root.current;
@@ -658,22 +735,37 @@ export const createFiberVisitor = ({
   };
 };
 
+/**
+ * Instruments the DevTools hook.
+ * @param options { onCommitFiberRoot, onCommitFiberUnmount, onPostCommitFiberRoot, onActive, name }
+ * @example
+ * const hook = instrument({
+ *   onActive() {
+ *     console.log('initialized');
+ *   },
+ *   onCommitFiberRoot(rendererID, root) {
+ *     console.log('fiberRoot', root.current)
+ *   },
+ * });
+ */
 export const instrument = ({
   onCommitFiberRoot,
   onCommitFiberUnmount,
   onPostCommitFiberRoot,
+  onActive,
   name,
 }: {
   onCommitFiberRoot?: (
     rendererID: number,
     root: FiberRoot,
     priority: void | number,
-  ) => void;
-  onCommitFiberUnmount?: (rendererID: number, root: FiberRoot) => void;
-  onPostCommitFiberRoot?: (rendererID: number, root: FiberRoot) => void;
+  ) => unknown;
+  onCommitFiberUnmount?: (rendererID: number, root: FiberRoot) => unknown;
+  onPostCommitFiberRoot?: (rendererID: number, root: FiberRoot) => unknown;
+  onActive?: () => unknown;
   name?: string;
 }) => {
-  const devtoolsHook = getRDTHook();
+  const devtoolsHook = getRDTHook(onActive);
   devtoolsHook._instrumentationSource = name ?? 'bippy';
 
   const prevOnCommitFiberRoot = devtoolsHook.onCommitFiberRoot;
@@ -714,3 +806,17 @@ export const instrument = ({
 
   return devtoolsHook;
 };
+
+const isBrowser =
+  typeof document !== 'undefined' &&
+  typeof document.createElement === 'function';
+const isNode =
+  typeof process !== 'undefined' &&
+  process.versions != null &&
+  process.versions.node != null;
+
+// __REACT_DEVTOOLS_GLOBAL_HOOK__ must exist before React is ever executed
+// this is the case with the React Devtools extension, but without it, we need
+if (isBrowser || !isNode) {
+  installRDTHook();
+}
