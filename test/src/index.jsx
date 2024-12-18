@@ -11,40 +11,6 @@ import {
 import React, { useState } from 'react';
 import ReactDOM from 'react-dom/client';
 
-const components = {};
-
-window.components = components;
-
-instrument({
-  onCommitFiberRoot(rendererID, root) {
-    traverseFiber(root.current, (fiber) => {
-      if (isCompositeFiber(fiber)) {
-        const displayName = getDisplayName(fiber);
-        const hostFiber = getNearestHostFiber(fiber);
-        if (!hostFiber) return;
-
-        const listeners = [];
-
-        traverseFiber(fiber, (innerFiber) => {
-          if (isHostFiber(innerFiber)) {
-            traverseProps(innerFiber, (propName, value) => {
-              if (propName.startsWith('on')) {
-                listeners.push(value);
-              }
-            });
-          }
-        });
-
-        components[displayName] = {
-          fiber,
-          element: hostFiber.stateNode,
-          listeners,
-        };
-      }
-    });
-  },
-});
-
 function TodoList() {
   const [todos, setTodos] = useState([]);
   const [input, setInput] = useState('');
