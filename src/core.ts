@@ -2,6 +2,11 @@
 // since it will be executed before the react devtools hook is created
 
 import type * as React from "react";
+import {
+	BIPPY_INSTRUMENTATION_STRING,
+	getRDTHook,
+	hasRDTHook,
+} from "./rdt-hook.js";
 import type {
 	ContextDependency,
 	Effect,
@@ -10,11 +15,6 @@ import type {
 	MemoizedState,
 	ReactRenderer,
 } from "./types.js";
-import {
-	BIPPY_INSTRUMENTATION_STRING,
-	getRDTHook,
-	hasRDTHook,
-} from "./rdt-hook.js";
 
 export const ClassComponentTag = 1;
 export const FunctionComponentTag = 0;
@@ -94,25 +94,35 @@ export const isValidFiber = (fiber: unknown): fiber is Fiber =>
  *
  * @see https://reactnative.dev/architecture/glossary#host-view-tree-and-host-view
  */
-export const isHostFiber = (fiber: Fiber) =>
-	fiber.tag === HostComponentTag ||
-	// @ts-expect-error: it exists
-	fiber.tag === HostHoistableTag ||
-	// @ts-expect-error: it exists
-	fiber.tag === HostSingletonTag ||
-	typeof fiber.type === "string";
-
+export const isHostFiber = (fiber: Fiber) => {
+	switch (fiber.tag) {
+		case HostComponentTag:
+		// @ts-expect-error: it exists
+		case HostHoistableTag:
+		// @ts-expect-error: it exists
+		case HostSingletonTag:
+			return true;
+		default:
+			return typeof fiber.type === "string";
+	}
+};
 /**
  * Returns `true` if fiber is a composite fiber. Composite fibers are fibers that can render (like functional components, class components, etc.)
  *
  * @see https://reactnative.dev/architecture/glossary#react-composite-components
  */
-export const isCompositeFiber = (fiber: Fiber) =>
-	fiber.tag === FunctionComponentTag ||
-	fiber.tag === ClassComponentTag ||
-	fiber.tag === SimpleMemoComponentTag ||
-	fiber.tag === MemoComponentTag ||
-	fiber.tag === ForwardRefTag;
+export const isCompositeFiber = (fiber: Fiber) => {
+	switch (fiber.tag) {
+		case FunctionComponentTag:
+		case ClassComponentTag:
+		case SimpleMemoComponentTag:
+		case MemoComponentTag:
+		case ForwardRefTag:
+			return true;
+		default:
+			return false;
+	}
+};
 
 /**
  * Traverses up or down a {@link Fiber}'s contexts, return `true` to stop and select the current and previous context value.
@@ -124,8 +134,8 @@ export const traverseContexts = (
 		prevValue: ContextDependency<unknown> | null | undefined,
 		// biome-ignore lint/suspicious/noConfusingVoidType: optional return
 	) => boolean | void,
-) => {
-	return safeTry(() => {
+): boolean => {
+	try {
 		const nextDependencies = fiber.dependencies;
 		const prevDependencies = fiber.alternate?.dependencies;
 
@@ -156,7 +166,9 @@ export const traverseContexts = (
 			prevContext = prevContext?.next;
 		}
 		return false;
-	});
+	} catch {
+		return false;
+	}
 };
 
 /**
@@ -169,8 +181,8 @@ export const traverseState = (
 		prevValue: MemoizedState | null | undefined,
 		// biome-ignore lint/suspicious/noConfusingVoidType: optional return
 	) => boolean | void,
-) => {
-	return safeTry(() => {
+): boolean => {
+	try {
 		let nextState: MemoizedState | null | undefined = fiber.memoizedState;
 		let prevState: MemoizedState | null | undefined =
 			fiber.alternate?.memoizedState;
@@ -182,7 +194,9 @@ export const traverseState = (
 			prevState = prevState?.next;
 		}
 		return false;
-	});
+	} catch {
+		return false;
+	}
 };
 
 /**
@@ -195,8 +209,8 @@ export const traverseEffects = (
 		prevValue: Effect | null | undefined,
 		// biome-ignore lint/suspicious/noConfusingVoidType: optional return
 	) => boolean | void,
-) => {
-	return safeTry(() => {
+): boolean => {
+	try {
 		let nextState: Effect | null | undefined =
 			// biome-ignore lint/suspicious/noExplicitAny: underlying type is unknown
 			(fiber.updateQueue as any)?.lastEffect;
@@ -214,7 +228,9 @@ export const traverseEffects = (
 			prevState = prevState?.next;
 		}
 		return false;
-	});
+	} catch {
+		return false;
+	}
 };
 
 /**
@@ -228,8 +244,8 @@ export const traverseProps = (
 		prevValue: unknown,
 		// biome-ignore lint/suspicious/noConfusingVoidType: may or may not exist
 	) => boolean | void,
-) => {
-	return safeTry(() => {
+): boolean => {
+	try {
 		const nextProps = fiber.memoizedProps;
 		const prevProps = fiber.alternate?.memoizedProps || {};
 
@@ -245,7 +261,9 @@ export const traverseProps = (
 			if (selector(propName, nextValue, prevValue) === true) return true;
 		}
 		return false;
-	});
+	} catch {
+		return false;
+	}
 };
 
 /**
@@ -521,12 +539,14 @@ export const isUsingRDT = () => {
  * Returns the build type of the React renderer.
  */
 export const detectReactBuildType = (renderer: ReactRenderer) => {
-	return safeTry(() => {
+	try {
 		if (typeof renderer.version === "string" && renderer.bundleType > 0) {
 			return "development";
 		}
 		return "production";
-	});
+	} catch {
+		return null;
+	}
 };
 
 /**
@@ -800,7 +820,7 @@ export const createFiberVisitor = ({
 		}
 
 		const { prevFiber } = rootInstance;
-		safeTry(() => {
+		try {
 			// if fiberRoot don't have current instance, means it's been unmounted
 			if (!rootFiber) {
 				unmountFiber(onRender, root);
@@ -832,7 +852,9 @@ export const createFiberVisitor = ({
 			} else {
 				mountFiberRecursively(onRender, rootFiber, true);
 			}
-		}, onError);
+		} catch (error) {
+			onError(error);
+		}
 		rootInstance.prevFiber = rootFiber;
 	};
 };
@@ -923,7 +945,7 @@ export const secure = (
 	options.onActive = () => {
 		clearTimeout(timeout);
 		let isSecure = true;
-		safeTry(() => {
+		try {
 			onActive?.();
 			const rdtHook = getRDTHook();
 
@@ -940,7 +962,9 @@ export const secure = (
 					}
 				}
 			}
-		});
+		} catch {
+			// no-op
+		}
 
 		if (!isSecure) {
 			options.onCommitFiberRoot = undefined;
@@ -953,21 +977,33 @@ export const secure = (
 		const onCommitFiberRoot = options.onCommitFiberRoot;
 		if (onCommitFiberRoot) {
 			options.onCommitFiberRoot = (rendererID, root, priority) => {
-				safeTry(() => onCommitFiberRoot(rendererID, root, priority));
+				try {
+					onCommitFiberRoot(rendererID, root, priority);
+				} catch {
+					// no-op
+				}
 			};
 		}
 
 		const onCommitFiberUnmount = options.onCommitFiberUnmount;
 		if (onCommitFiberUnmount) {
 			options.onCommitFiberUnmount = (rendererID, root) => {
-				safeTry(() => onCommitFiberUnmount(rendererID, root));
+				try {
+					onCommitFiberUnmount(rendererID, root);
+				} catch {
+					// no-op
+				}
 			};
 		}
 
 		const onPostCommitFiberRoot = options.onPostCommitFiberRoot;
 		if (onPostCommitFiberRoot) {
 			options.onPostCommitFiberRoot = (rendererID, root) => {
-				safeTry(() => onPostCommitFiberRoot(rendererID, root));
+				try {
+					onPostCommitFiberRoot(rendererID, root);
+				} catch {
+					// no-op
+				}
 			};
 		}
 	};
@@ -982,16 +1018,4 @@ export const secure = (
 	}
 
 	return options;
-};
-
-export const safeTry = <T>(
-	fn: () => T,
-	onError?: (error: unknown) => unknown,
-) => {
-	try {
-		return fn();
-	} catch (error) {
-		onError?.(error);
-	}
-	return null;
 };

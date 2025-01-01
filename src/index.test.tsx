@@ -1,14 +1,20 @@
+import { render } from "@testing-library/react";
+import React, { isValidElement } from "react";
+import { describe, expect, it, vi } from "vitest";
 import {
+	type ContextDependency,
+	type Effect,
+	type Fiber,
+	type FiberRoot,
 	createFiberVisitor,
 	didFiberCommit,
-	type Fiber,
-	type Effect,
-	type FiberRoot,
+	didFiberRender,
 	getDisplayName,
 	getFiberStack,
 	getMutatedHostFibers,
 	getNearestHostFiber,
 	getNearestHostFibers,
+	getRDTHook,
 	getTimings,
 	getType,
 	instrument,
@@ -22,14 +28,7 @@ import {
 	traverseFiber,
 	traverseProps,
 	traverseState,
-	didFiberRender,
-	type ContextDependency,
-	safeTry,
-	getRDTHook,
 } from "./index.js";
-import { describe, expect, it, vi } from "vitest";
-import { render, waitFor } from "@testing-library/react";
-import React, { isValidElement } from "react";
 
 const BasicComponent = () => {
 	return <div>Hello</div>;
@@ -394,7 +393,9 @@ describe("createFiberVisitor", () => {
 						{Array(generateRandomNumber(1, 5))
 							.fill(0)
 							.map((_, index) => {
-								const elementKey = `${displayName}-${generateRandomDisplayName(5)}`;
+								const elementKey = `${displayName}-${generateRandomDisplayName(
+									5,
+								)}`;
 								return Math.random() > 0.75 ? (
 									<div key={elementKey}>{displayName}</div>
 								) : (
@@ -888,18 +889,5 @@ describe("traverseContexts", () => {
 		const selector = vi.fn(() => true);
 		traverseContexts(maybeFiber as unknown as Fiber, selector);
 		expect(selector).toBeCalledTimes(1);
-	});
-});
-
-describe("safeTry", () => {
-	it("should return the result of the function", () => {
-		const onError = vi.fn();
-		const fn = vi.fn(() => {
-			throw err;
-		});
-		const err = new Error("test");
-		safeTry(fn, onError);
-		expect(onError).toHaveBeenCalledWith(err);
-		expect(fn).toThrowError(err);
 	});
 });
