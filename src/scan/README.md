@@ -3,6 +3,8 @@
 - think of ways to highlight what the actual problems are
 - service worker
 - port over select tool
+- server components
+- extractor
 
 ## notes
 

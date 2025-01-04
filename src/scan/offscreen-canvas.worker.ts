@@ -1,4 +1,4 @@
-import type { ActiveOutline } from "./types.js";
+import type { ActiveOutline, InspectState } from "./types.js";
 import { drawCanvas, initCanvas, OUTLINE_ARRAY_SIZE } from "./canvas.js";
 
 let canvas: OffscreenCanvas | null = null;
@@ -8,10 +8,16 @@ let dpr = 1;
 const activeOutlines: Map<string, ActiveOutline> = new Map();
 let animationFrameId: number | null = null;
 
+let inspectState: InspectState = {
+	isActive: false,
+	hoveredRect: null,
+	hoveredInfo: null
+};
+
 const draw = () => {
 	if (!ctx || !canvas) return;
 
-	const shouldContinue = drawCanvas(ctx, canvas, dpr, activeOutlines);
+	const shouldContinue = drawCanvas(ctx, canvas, dpr, activeOutlines, inspectState);
 
 	if (shouldContinue) {
 		animationFrameId = requestAnimationFrame(draw);
@@ -104,5 +110,12 @@ self.onmessage = (event) => {
 			outline.targetX = newX;
 			outline.targetY = newY;
 		}
+	}
+
+	if (type === "inspect-update") {
+		const { isActive, hoveredRect, hoveredInfo } = event.data;
+		inspectState = { isActive, hoveredRect, hoveredInfo };
+		draw();
+		return;
 	}
 };

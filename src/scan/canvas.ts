@@ -1,4 +1,4 @@
-import type { ActiveOutline, OutlineData } from "./types.js";
+import type { ActiveOutline, OutlineData, InspectState } from "./types.js";
 
 export const OUTLINE_ARRAY_SIZE = 7;
 export const MONO_FONT =
@@ -11,10 +11,13 @@ export const lerp = (start: number, end: number) => {
 
 export const MAX_PARTS_LENGTH = 4;
 export const MAX_LABEL_LENGTH = 40;
-export const TOTAL_FRAMES = 45;
+export const TOTAL_FRAMES = 120;
 
 export const primaryColor = "115,97,230";
 export const secondaryColor = "128,128,128";
+
+export const INSPECT_CURSOR = "crosshair";
+export const DEFAULT_CURSOR = "default";
 
 export const getLabelText = (outlines: ActiveOutline[]): string => {
 	const nameByCount = new Map<string, number>();
@@ -133,9 +136,11 @@ export const drawCanvas = (
 	canvas: HTMLCanvasElement | OffscreenCanvas,
 	dpr: number,
 	activeOutlines: Map<string, ActiveOutline>,
+	inspectState: InspectState,
 ) => {
 	ctx.clearRect(0, 0, canvas.width / dpr, canvas.height / dpr);
 
+	// Draw outlines first
 	const groupedOutlinesMap = new Map<string, ActiveOutline[]>();
 	const rectMap = new Map<
 		string,
@@ -246,12 +251,6 @@ export const drawCanvas = (
 			outlines,
 		});
 
-		let labelY: number = y - height - 4;
-
-		if (labelY < 0) {
-			labelY = 0;
-		}
-
 		if (frame > TOTAL_FRAMES) {
 			for (const outline of outlines) {
 				activeOutlines.delete(String(outline.id));
@@ -308,5 +307,32 @@ export const drawCanvas = (
 		ctx.fillText(text, x + 2, labelY + height);
 	}
 
-	return activeOutlines.size > 0;
+	if (inspectState.isActive && inspectState.hoveredRect && inspectState.hoveredInfo) {
+		const rect = inspectState.hoveredRect;
+		const { displayName, tagName, key } = inspectState.hoveredInfo;
+
+		ctx.strokeStyle = `rgba(27, 161, 226, 0.8)`;
+		ctx.lineWidth = 2;
+		ctx.setLineDash([5, 5]);
+
+		ctx.beginPath();
+		ctx.rect(rect.x, rect.y, rect.width, rect.height);
+		ctx.stroke();
+		ctx.setLineDash([]);
+
+		const text = displayName || tagName;
+		const keyText = key ? ` key="${key}"` : '';
+		const label = `${text}${keyText}`;
+
+		ctx.font = `11px ${MONO_FONT}`;
+		const textWidth = ctx.measureText(label).width;
+
+		ctx.fillStyle = `rgba(27, 161, 226, 0.9)`;
+		ctx.fillRect(rect.x, rect.y - 20, textWidth + 8, 20);
+
+		ctx.fillStyle = 'white';
+		ctx.fillText(label, rect.x + 4, rect.y - 6);
+	}
+
+	return activeOutlines.size > 0 || inspectState.isActive;
 };

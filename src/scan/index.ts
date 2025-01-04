@@ -13,6 +13,7 @@ import type {
 	BlueprintOutline,
 	ActiveOutline,
 	OutlineData,
+	InspectState,
 } from "./types.js";
 // @ts-expect-error OK
 import OffscreenCanvasWorker from "./offscreen-canvas.worker.js";
@@ -22,7 +23,10 @@ import {
 	updateScroll,
 	initCanvas,
 	OUTLINE_ARRAY_SIZE,
+	INSPECT_CURSOR,
+	DEFAULT_CURSOR,
 } from "./canvas.js";
+import { getFiberFromHostInstance } from "../core.js";
 
 let worker: OffscreenCanvasWorker | null = null;
 let canvas: HTMLCanvasElement | null = null;
@@ -33,6 +37,110 @@ const activeOutlines = new Map<string, ActiveOutline>();
 
 const blueprintMap = new WeakMap<Fiber, BlueprintOutline>();
 const blueprintMapKeys = new Set<Fiber>();
+
+const inspectState: InspectState = {
+	isActive: false,
+	hoveredRect: null,
+	hoveredInfo: null
+};
+
+const TOGGLE_BUTTON_HTML = `
+	<button
+		style="
+			position: fixed;
+			bottom: 16px;
+			right: 16px;
+			z-index: 2147483647;
+			padding: 8px 12px;
+			border: none;
+			border-radius: 4px;
+			background: rgba(115,97,230,0.9);
+			color: white;
+			font-family: system-ui;
+			font-size: 13px;
+			cursor: pointer;
+			display: flex;
+			align-items: center;
+			gap: 6px;
+			box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+		"
+		aria-label="Toggle React element inspector"
+	>
+		<svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+			<path d="M2 8L6 12L14 4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+		</svg>
+		Inspect
+	</button>
+`;
+
+export const toggleInspectMode = (enable?: boolean) => {
+	if (!canvas) return;
+
+	inspectState.isActive = enable ?? !inspectState.isActive;
+	canvas.style.cursor = inspectState.isActive ? INSPECT_CURSOR : DEFAULT_CURSOR;
+
+	// Reset frame counters when inspect mode is enabled
+	if (inspectState.isActive) {
+		for (const outline of activeOutlines.values()) {
+			outline.frame = 0;
+		}
+		document.addEventListener("mouseover", handleInspectHover, true);
+		document.addEventListener("click", handleInspectClick, true);
+	} else {
+		document.removeEventListener("mouseover", handleInspectHover, true);
+		document.removeEventListener("click", handleInspectClick, true);
+	}
+};
+
+const handleInspectHover = (e: MouseEvent) => {
+	e.stopPropagation();
+	const target = e.target as Element;
+
+	// Don't highlight our own canvas
+	if (target.closest("[data-react-scan]")) return;
+
+	const fiber = getFiberFromHostInstance(target);
+	const rect = target.getBoundingClientRect();
+
+	inspectState.hoveredRect = rect;
+	inspectState.hoveredInfo = fiber ? {
+		tagName: target.tagName.toLowerCase(),
+		displayName: typeof fiber.type === "string" ? fiber.type : getDisplayName(fiber),
+		key: fiber.key as string | null
+	} : null;
+
+	// Force a redraw to show highlight
+	if (worker) {
+		worker.postMessage({
+			type: "inspect-update",
+			isActive: inspectState.isActive,
+			hoveredRect: {
+				x: rect.x,
+				y: rect.y,
+				width: rect.width,
+				height: rect.height
+			},
+			hoveredInfo: inspectState.hoveredInfo
+		});
+	} else if (!animationFrameId) {
+		animationFrameId = requestAnimationFrame(draw);
+	}
+};
+
+const handleInspectClick = (e: MouseEvent) => {
+	e.preventDefault();
+	e.stopPropagation();
+
+	// Get the target element directly from the event
+	const target = e.target as Element;
+	if (!target || target.closest("[data-react-scan]")) return;
+
+	const fiber = getFiberFromHostInstance(target);
+	if (fiber) {
+		console.log("Selected Fiber:", fiber);
+		// Here you can add custom handling of the selected fiber
+	}
+};
 
 export const outlineFiber = (fiber: Fiber) => {
 	if (!isCompositeFiber(fiber)) return;
@@ -202,7 +310,13 @@ export const flushOutlines = async () => {
 const draw = () => {
 	if (!ctx || !canvas) return;
 
-	const shouldContinue = drawCanvas(ctx, canvas, dpr, activeOutlines);
+	const shouldContinue = drawCanvas(
+		ctx,
+		canvas,
+		dpr,
+		activeOutlines,
+		inspectState,
+	);
 
 	if (shouldContinue) {
 		animationFrameId = requestAnimationFrame(draw);
@@ -226,8 +340,9 @@ export const getCanvasEl = () => {
 	host.setAttribute("data-react-scan", "true");
 	const shadowRoot = host.attachShadow({ mode: "open" });
 
-	shadowRoot.innerHTML = CANVAS_HTML_STR;
-	const canvasEl = shadowRoot.firstChild as HTMLCanvasElement;
+	shadowRoot.innerHTML = CANVAS_HTML_STR + TOGGLE_BUTTON_HTML;
+	const canvasEl = shadowRoot.querySelector("canvas");
+	const toggleButton = shadowRoot.querySelector("button");
 	if (!canvasEl) return null;
 
 	dpr = getDpr();
@@ -329,6 +444,21 @@ export const getCanvasEl = () => {
 		}
 	}, 16 * 2);
 
+	window.addEventListener("keydown", (e) => {
+		if (e.altKey && e.key.toLowerCase() === "i") {
+			toggleInspectMode();
+		}
+	});
+
+	toggleButton?.addEventListener("click", () => {
+		toggleInspectMode();
+		if (inspectState.isActive) {
+			toggleButton.style.background = "rgba(239,68,68,0.9)";
+		} else {
+			toggleButton.style.background = "rgba(115,97,230,0.9)";
+		}
+	});
+
 	shadowRoot.appendChild(canvasEl);
 	return host;
 };
@@ -346,8 +476,13 @@ let hasCleanedUp = false;
 export const cleanup = () => {
 	if (hasCleanedUp) return;
 	hasCleanedUp = true;
+	toggleInspectMode(false);
 	const host = document.querySelector("[data-react-scan]");
 	if (host) {
+		const button = host.shadowRoot?.querySelector("button");
+		if (button) {
+			button.style.background = "rgba(115,97,230,0.9)";
+		}
 		host.remove();
 	}
 };
@@ -393,4 +528,9 @@ const init = () => {
 
 if (typeof window !== "undefined") {
 	init();
+	// Add inspect toggle to global ReactScan object
+	globalThis.ReactScan = {
+		...globalThis.ReactScan,
+		toggleInspect: toggleInspectMode,
+	};
 }

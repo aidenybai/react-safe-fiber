@@ -67,6 +67,16 @@ export interface BlueprintOutline {
 	didCommit: 1 | 0;
 }
 
+export interface InspectState {
+	isActive: boolean;
+	hoveredRect: DOMRect | null;
+	hoveredInfo: {
+		tagName: string;
+		displayName: string | null;
+		key: string | null;
+	} | null;
+}
+
 declare global {
 	var __REACT_SCAN_STOP__: boolean;
 	var ReactScan: {
@@ -75,5 +85,6 @@ declare global {
 		cleanup: () => void;
 		init: () => void;
 		flushOutlines: () => void;
+		toggleInspect: () => void;
 	};
 }
