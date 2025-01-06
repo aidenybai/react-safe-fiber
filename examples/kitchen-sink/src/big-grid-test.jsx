@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import "bippy/dist/scan/index";
+import "bippy/scan";
 
 export default function SlowComponent() {
 	const largeArray = Array.from({ length: 10000 }, (_, i) => i);

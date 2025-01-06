@@ -1,2 +1,3 @@
 packages:
-  - 'kitchen-sink'
+  - 'packages/*'
+  - 'examples/*'

@@ -1,4 +1,4 @@
-import type { ReactDevToolsGlobalHook, ReactRenderer } from "./types.js";
+import type { ReactDevToolsGlobalHook, ReactRenderer } from "./types";
 
 export const version = process.env.VERSION;
 export const BIPPY_INSTRUMENTATION_STRING = `bippy-${version}`;
@@ -79,8 +79,7 @@ try {
 	// __REACT_DEVTOOLS_GLOBAL_HOOK__ must exist before React is ever executed
 	if (
 		typeof window !== "undefined" &&
-		// @ts-expect-error `document` may not be defined in some enviroments
-		(window.document?.createElement ||
+		(typeof window.document !== "undefined" && typeof window.document.createElement === "function" ||
 			window.navigator?.product === "ReactNative") &&
 		typeof process !== "undefined" &&
 		process.versions != null &&

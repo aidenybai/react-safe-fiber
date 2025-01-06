@@ -1,7 +1,7 @@
 // https://x.com/jjenzz/status/1859954446140334277
 import { instrument, getNearestHostFibers, createFiberVisitor } from "bippy"; // must be imported BEFORE react
 import * as React from "react";
-import * as BippyScan from "bippy/dist/scan/index";
+import * as BippyScan from "bippy/scan";
 
 BippyScan;
 

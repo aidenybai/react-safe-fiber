@@ -6,7 +6,7 @@ import {
 	BIPPY_INSTRUMENTATION_STRING,
 	getRDTHook,
 	hasRDTHook,
-} from "./rdt-hook.js";
+} from "./rdt-hook";
 import type {
 	ContextDependency,
 	Effect,
@@ -14,7 +14,7 @@ import type {
 	FiberRoot,
 	MemoizedState,
 	ReactRenderer,
-} from "./types.js";
+} from "./types";
 
 // https://github.com/facebook/react/blob/main/packages/react-reconciler/src/ReactWorkTags.js
 export const FunctionComponentTag = 0;

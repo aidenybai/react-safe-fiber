@@ -1,4 +1,4 @@
-import type { ActiveOutline, OutlineData } from "./types.js";
+import type { ActiveOutline, OutlineData } from "./types";
 
 export const OUTLINE_ARRAY_SIZE = 7;
 export const MONO_FONT =
