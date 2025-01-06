@@ -6,11 +6,12 @@ const PROJECT = "mini-react-scan";
 
 export const root = ReactDOM.createRoot(document.getElementById("root"));
 const render = async () => {
-	const Component = (
-		await import(
-			process.env.NODE_ENV !== "production" ? `./${PROJECT}.jsx` : "./main.jsx"
-		)
-	).default;
+	let Component;
+	if (process.env.NODE_ENV === "production") {
+		Component = (await import(/* @vite-ignore */ `./main.jsx`)).default;
+	} else {
+		Component = (await import(/* @vite-ignore */ `./${PROJECT}.jsx`)).default;
+	}
 	root.render(<Component />);
 };
 

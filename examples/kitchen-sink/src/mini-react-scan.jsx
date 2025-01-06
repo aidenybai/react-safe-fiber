@@ -1,5 +1,5 @@
 import React, { useState, createContext } from "react";
-import * as BippyScan from "bippy/dist/scan/index";
+import * as BippyScan from "bippy/scan";
 
 // const visit = createFiberVisitor({
 // 	onRender(fiber) {

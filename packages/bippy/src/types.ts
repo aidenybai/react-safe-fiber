@@ -123,6 +123,13 @@ export interface ReactRenderer {
 	version: string;
 	bundleType: 0 /* PROD */ | 1 /* DEV */;
 	findFiberByHostInstance?: (hostInstance: unknown) => Fiber | null;
+	overrideProps?: (fiber: Fiber, path: unknown[], value: unknown) => void;
+	overrideHookState?: (
+		fiber: Fiber,
+		id: unknown,
+		path: unknown[],
+		value: unknown,
+	) => void;
 }
 
 export interface ContextDependency<T> {

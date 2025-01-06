@@ -1,4 +1,4 @@
-import type { Fiber as ReactFiber } from "../index.js";
+import type { Fiber as ReactFiber } from "../index";
 
 export type Fiber = ReactFiber<Element>;
 

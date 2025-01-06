@@ -7,22 +7,22 @@ import {
 	instrument,
 	isCompositeFiber,
 	secure,
-} from "../index.js";
+} from "../index";
 import type {
 	Fiber,
 	BlueprintOutline,
 	ActiveOutline,
 	OutlineData,
-} from "./types.js";
+} from "./types";
 // @ts-expect-error OK
-import OffscreenCanvasWorker from "./offscreen-canvas.worker.js";
+import OffscreenCanvasWorker from "./offscreen-canvas.worker";
 import {
 	drawCanvas,
 	updateOutlines,
 	updateScroll,
 	initCanvas,
 	OUTLINE_ARRAY_SIZE,
-} from "./canvas.js";
+} from "./canvas";
 
 let worker: OffscreenCanvasWorker | null = null;
 let canvas: HTMLCanvasElement | null = null;

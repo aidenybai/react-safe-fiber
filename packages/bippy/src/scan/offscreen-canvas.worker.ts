@@ -1,5 +1,5 @@
-import type { ActiveOutline } from "./types.js";
-import { drawCanvas, initCanvas, OUTLINE_ARRAY_SIZE } from "./canvas.js";
+import type { ActiveOutline } from "./types";
+import { drawCanvas, initCanvas, OUTLINE_ARRAY_SIZE } from "./canvas";
 
 let canvas: OffscreenCanvas | null = null;
 let ctx: OffscreenCanvasRenderingContext2D | null = null;

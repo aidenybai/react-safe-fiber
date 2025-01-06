@@ -47,7 +47,7 @@
 	"javascript": {
 		"formatter": {
 			"quoteStyle": "single",
-			"indentStyle": "space",
+			"indentStyle": "tab",
 			"indentWidth": 2,
 			"lineWidth": 80,
 			"lineEnding": "lf"
