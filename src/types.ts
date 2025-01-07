@@ -104,7 +104,7 @@ export type Fiber<T = any> = Omit<
 	| "updateQueue"
 > & {
 	stateNode: T;
-	dependencies: Dependencies;
+	dependencies: Dependencies | null;
 	child: Fiber | null;
 	sibling: Fiber | null;
 	return: Fiber | null;
