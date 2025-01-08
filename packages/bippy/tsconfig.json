@@ -1,25 +1,9 @@
 {
-	"compilerOptions": {
-		"jsx": "react",
-		"module": "ESNext",
-		"target": "ESNext",
-		"esModuleInterop": true,
-		"strictNullChecks": true,
-		"allowSyntheticDefaultImports": true,
-		"strict": true,
-		"lib": [
-			"esnext",
-			"dom"
-		],
-		"moduleResolution": "bundler"
-	},
-	"include": [
-		"src",
-		"vitest.config.ts",
-		"tsup.config.ts"
-	],
-	"exclude": [
-		"**/node_modules/**",
-		"dist"
-	]
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "outDir": "./dist",
+    "declaration": true,
+    "jsx": "react-jsx"
+  },
+  "include": ["src"]
 }

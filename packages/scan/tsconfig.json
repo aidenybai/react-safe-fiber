@@ -1,0 +1,24 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "node",
+    "jsx": "react-jsx",
+    "jsxImportSource": "preact",
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "baseUrl": ".",
+    "composite": true,
+    "noEmit": false,
+    "paths": {
+      "~assets/*": ["./src/assets/*"],
+      "~core/*": ["./src/core/*"],
+      "~web/*": ["./src/web/*"],
+      "*.worker": ["./src/*.worker.ts"]
+    }
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules/@types/react"]
+}

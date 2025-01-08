@@ -1,18 +1,19 @@
 {
-	"name": "root",
-	"type": "module",
-	"scripts": {
-		"build": "pnpm --parallel build",
-		"dev": "pnpm --parallel dev",
-		"lint": "pnpm biome lint --write packages/*/src/**/*.ts",
-		"format": "pnpm biome format --write packages/*/src/**/*.ts",
-		"check": "pnpm biome check --write packages/*/src/**/*.ts"
-	},
-	"devDependencies": {
-		"@types/node": "^22.10.5",
-		"prettier": "^3.3.3"
-	},
-	"publishConfig": {
-		"access": "public"
-	}
+  "name": "root",
+  "type": "module",
+  "scripts": {
+    "dev": "node scripts/workspace.mjs dev",
+    "build": "WORKSPACE_BUILD=true node scripts/workspace.mjs build",
+    "postbuild": "node scripts/version-warning.mjs",
+    "lint": "biome lint .",
+    "format": "biome format . --write",
+    "check": "biome check . --write"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "1.9.4",
+    "@types/node": "^22.10.5",
+    "boxen": "^8.0.1",
+    "chalk": "^5.4.1",
+    "typescript": "latest"
+  }
 }
