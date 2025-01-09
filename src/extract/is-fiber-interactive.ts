@@ -1,4 +1,5 @@
 import type { Fiber } from '../types.js';
+import { isElementARIAOperable } from './is-element-interactive.js';
 
 // https://www.w3.org/TR/wai-aria/#aria-disabled
 const ARIA_ROLES = new Set([
@@ -64,6 +65,11 @@ function isFiberARIAOperable(fiber: Fiber): boolean {
   }
   if (fiber.return) {
     return result && isFiberARIAOperable(fiber.return);
+  }
+  if (fiber.stateNode && fiber.stateNode instanceof HTMLElement) {
+    if (fiber.stateNode.parentElement) {
+      return result && isElementARIAOperable(fiber.stateNode.parentElement);
+    }
   }
   return result;
 }

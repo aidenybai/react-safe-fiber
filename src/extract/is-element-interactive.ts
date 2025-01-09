@@ -37,7 +37,7 @@ const ARIA_ROLES = new Set([
   'treeitem',
 ]);
 
-function isElementARIAOperable(element: HTMLElement): boolean {
+export function isElementARIAOperable(element: HTMLElement): boolean {
   return (
     !(
       element.hasAttribute('disabled') ||
