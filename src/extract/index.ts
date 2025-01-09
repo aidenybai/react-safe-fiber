@@ -353,6 +353,22 @@ export const createRSTWithFiber = (
   return { root: nodes[0] };
 };
 
+function getEventHandlers(fiber: Fiber): Record<string, string> {
+  const eventHandlers: Record<string, string> = {};
+
+  // TODO megamorphic
+  for (const key in fiber.memoizedProps) {
+    if (
+      /^on[A-Z]/.test(key) &&
+      typeof fiber.memoizedProps[key] === 'function'
+    ) {
+      eventHandlers[key] = fiber.memoizedProps[key].name; // TODO toString()???
+    }
+  }
+
+  return eventHandlers;
+}
+
 const traverseNode = (
   fiber: Fiber,
   element: Element | null,
@@ -386,7 +402,7 @@ const traverseNode = (
         role,
         ariaLabel,
         element,
-        eventHandlers: {},
+        eventHandlers: getEventHandlers(fiber),
         children: [],
       };
       nodes.push(node);
@@ -395,7 +411,7 @@ const traverseNode = (
       const node: ReactInteractiveSpecNode = {
         type: ReactSpecNodeType.Interactive,
         element,
-        eventHandlers: {},
+        eventHandlers: getEventHandlers(fiber),
         children: [],
       };
       nodes.push(node);
