@@ -15,7 +15,7 @@ import {
 import { isFiberInteractive } from './is-fiber-interactive.js';
 
 export interface ReactSpecTree {
-  root: BaseReactSpecNode;
+  root: ReactSpecNode;
 }
 
 export enum ReactSpecNodeType {
@@ -249,7 +249,7 @@ export const init = () => {
       }
       text = orderedDisplayNames.join(' > ');
       const rst = createRSTWithFiber(nearestCompositeFiber || fiber, target);
-      // console.log(printRST(rst));
+      console.log(printRSTGraph(rst));
       console.log(rst);
     } else {
       focusedFiber = null;
@@ -454,3 +454,44 @@ export const getRectMap = (
     }
   });
 };
+
+function serializeNode(
+  node: ReactSpecNode,
+  id: { size: number },
+  parent?: number,
+) {
+  let label: string;
+  switch (node.type) {
+    case ReactSpecNodeType.Component:
+      label = node.name || 'unknown';
+      break;
+    case ReactSpecNodeType.A11y:
+      label = node.element?.tagName.toLowerCase() || 'unknown';
+      break;
+    case ReactSpecNodeType.Element:
+      label = node.element?.tagName.toLowerCase() || 'unknown';
+      break;
+    case ReactSpecNodeType.Interactive:
+      label = node.element?.tagName.toLowerCase() || 'unknown';
+      break;
+  }
+
+  const current = id.size;
+
+  let result = `${current}[label=${label}];`;
+
+  if (parent != null) {
+    result += `${parent} -> ${current};`;
+  }
+
+  for (let i = 0, len = node.children.length; i < len; i++) {
+    id.size++;
+    result += serializeNode(node.children[i], id, current);
+  }
+
+  return result;
+}
+
+export function printRSTGraph(tree: ReactSpecTree): string {
+  return `digraph G { ${serializeNode(tree.root, { size: 0 })} }`;
+}
