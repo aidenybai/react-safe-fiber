@@ -1,20 +1,18 @@
 import {
-  instrument,
-  secure,
-  createFiberVisitor,
-  traverseFiber,
-  getFiberId,
   type Fiber,
   type FiberRoot,
-  isCompositeFiber,
-  traverseProps,
-  isHostFiber,
-  getFiberFromHostInstance,
-  getFiberStack,
   getDisplayName,
-  getNearestHostFiber,
+  getFiberFromHostInstance,
+  getFiberId,
+  getFiberStack,
+  instrument,
+  isCompositeFiber,
+  isHostFiber,
+  secure,
+  traverseFiber,
   traverseRenderedFibers,
 } from '../index.js';
+import { isElementInteractive } from './is-element-interactive.js';
 
 export interface ReactSpecTree {
   root: BaseReactSpecNode;
@@ -382,16 +380,6 @@ const traverseNode = (
     const ariaLabel = element.getAttribute('aria-label');
     const hasA11y = role || ariaLabel;
 
-    const isInteractive =
-      element instanceof HTMLButtonElement ||
-      element instanceof HTMLAnchorElement ||
-      element instanceof HTMLInputElement ||
-      element.hasAttribute('onclick') ||
-      element.hasAttribute('onkeydown') ||
-      element.hasAttribute('onkeyup') ||
-      element.hasAttribute('onmousedown') ||
-      element.hasAttribute('onmouseup');
-
     if (hasA11y) {
       const node: ReactA11ySpecNode = {
         type: ReactSpecNodeType.A11y,
@@ -403,7 +391,10 @@ const traverseNode = (
       };
       nodes.push(node);
       traverseChildren(fiber, node.children);
-    } else if (isInteractive) {
+    } else if (
+      element instanceof HTMLElement &&
+      isElementInteractive(element)
+    ) {
       const node: ReactInteractiveSpecNode = {
         type: ReactSpecNodeType.Interactive,
         element,
