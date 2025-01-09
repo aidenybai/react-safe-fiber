@@ -1,3 +1,4 @@
+// https://www.w3.org/TR/wai-aria/#aria-disabled
 const ARIA_ROLES = new Set([
   'application',
   'button',
@@ -42,7 +43,10 @@ function isElementARIAOperable(element: HTMLElement): boolean {
       element.hasAttribute('disabled') ||
       element.getAttribute('aria-disabled') === 'true' ||
       element.getAttribute('aria-hidden') === 'true'
-    ) && (element.parentElement ? isElementARIAOperable(element) : true)
+    ) &&
+    (element.parentElement
+      ? isElementARIAOperable(element.parentElement)
+      : true)
   );
 }
 
