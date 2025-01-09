@@ -219,7 +219,6 @@ export const init = () => {
   document.addEventListener('contextmenu', async (event) => {
     // if (event.button !== 2) return;
     const target = event.target as Element;
-    console.log('TARGET', target);
     const fiber = getFiberFromHostInstance(target);
 
     focusedElement = target;
