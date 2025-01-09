@@ -10,7 +10,7 @@ import {
   instrument,
   getNearestHostFiber,
   traverseProps,
-  isHostFiber,
+  isHostFiber
 } from 'bippy';
 import { Inspector, ObjectInspector } from 'react-inspector';
 import { clsx } from 'clsx';
@@ -42,7 +42,7 @@ declare const __VERSION__: string;
 
 instrument({
   onCommitFiberRoot(_, root) {
-    traverseFiber(root.current, (fiber) => {
+    traverseFiber(root.current, fiber => {
       if (isCompositeFiber(fiber)) {
         const hostFiber = getNearestHostFiber(fiber);
         const displayName = getDisplayName(fiber) || 'unknown';
@@ -66,7 +66,7 @@ instrument({
         if (Object.keys(props).length > 0) {
           hostInstance.setAttribute(
             'react-component-props',
-            JSON.stringify(props),
+            JSON.stringify(props)
           );
         }
       }
@@ -82,12 +82,12 @@ instrument({
           if (!hostInstance) return;
           hostInstance.setAttribute(
             'react-event-listeners',
-            JSON.stringify(listeners),
+            JSON.stringify(listeners)
           );
         }
       }
     });
-  },
+  }
 });
 
 const getFiberFromElement = (element: Element) => {
@@ -160,14 +160,18 @@ interface HoverOverlayProps {
   children?: ReactNode;
 }
 
-export const HoverOverlay = ({ isInspectorEnabled = true }: HoverOverlayProps) => {
-  const [fiber, setFiber] = useState<Fiber | null>(null);
+export const HoverOverlay = ({
+  isInspectorEnabled = true
+}: HoverOverlayProps) => {
+  const [inspected, setInspected] = useState<Fiber | null>(null);
+  const [hovered, setHovered] = useState<Fiber | null>(null);
   const [rect, setRect] = useState<DOMRect | null>(null);
 
   useEffect(() => {
     const handleMouseMove = (e: globalThis.MouseEvent) => {
+      if (inspected) return;
       if (window.innerWidth < 800 || !isInspectorEnabled) {
-        setFiber(null);
+        setHovered(null);
         setRect(null);
         return;
       }
@@ -177,16 +181,16 @@ export const HoverOverlay = ({ isInspectorEnabled = true }: HoverOverlayProps) =
       let foundInspect = false;
       traverseFiber(
         fiber,
-        (innerFiber) => {
+        innerFiber => {
           if (innerFiber.type === Inspector) {
             foundInspect = true;
             return true;
           }
         },
-        true,
+        true
       );
       if (foundInspect) return;
-      setFiber(fiber?.return || fiber);
+      setHovered(fiber?.return || fiber);
       setRect(element.getBoundingClientRect());
     };
 
@@ -196,8 +200,34 @@ export const HoverOverlay = ({ isInspectorEnabled = true }: HoverOverlayProps) =
     return () => {
       document.removeEventListener('mousemove', throttledMouseMove);
     };
-  }, [isInspectorEnabled]);
+  }, [isInspectorEnabled, inspected]);
 
+  useEffect(() => {
+    const handleMouseClick = (e: globalThis.KeyboardEvent) => {
+      if (!isInspectorEnabled) return;
+      if (e.key === 'i') {
+        if (inspected) {
+          setInspected(null);
+          setHovered(null);
+          setRect(null);
+        } else {
+          setInspected(hovered);
+          console.info('Inspected fiber:', hovered);
+        }
+      }
+      if (inspected && e.key === 'Escape') {
+        setInspected(null);
+        setHovered(null);
+        setRect(null);
+      }
+    };
+    document.addEventListener('keydown', handleMouseClick);
+    return () => {
+      document.removeEventListener('keydown', handleMouseClick);
+    };
+  }, [isInspectorEnabled, inspected, hovered]);
+
+  const fiber = inspected || hovered;
   if (window.innerWidth < 800 || !fiber || !rect) return null;
 
   return (
@@ -209,15 +239,18 @@ export const HoverOverlay = ({ isInspectorEnabled = true }: HoverOverlayProps) =
           left: rect.left + rect.width,
           opacity: rect ? 1 : 0,
           transform: rect ? 'translateY(0)' : 'translateY(10px)',
-          pointerEvents: rect ? 'auto' : 'none',
+          pointerEvents: rect ? 'auto' : 'none'
         }}
       >
-        <Text
-          as="h3"
-          className="text-sm mb-[1ch] bg-neutral-100 px-[0.5ch] rounded-sm w-fit"
-        >
-          {`<${typeof fiber.type === 'string' ? fiber.type : getDisplayName(fiber) || 'unknown'}>`}
-        </Text>
+        <div className="flex items-center gap-1 mb-[1ch] ">
+          <Text
+            as="h3"
+            className="text-sm bg-neutral-100 px-[0.5ch] rounded-sm w-fit"
+          >
+            {`<${typeof fiber.type === 'string' ? fiber.type : getDisplayName(fiber) || 'unknown'}>`}
+          </Text>
+          {inspected && <LockIcon className="size-4" />}
+        </div>
         <ObjectInspector data={fiber} expandLevel={1} table={false} />
       </div>
       <div
@@ -226,9 +259,12 @@ export const HoverOverlay = ({ isInspectorEnabled = true }: HoverOverlayProps) =
           top: rect.top,
           width: rect.width,
           height: rect.height,
-          opacity: rect ? 1 : 0,
+          opacity: rect ? 1 : 0
         }}
-        className="border border-neutral-400 border-dashed fixed z-40 pointer-events-none transition-all duration-150"
+        className={cn(
+          'border border-dashed fixed z-40 pointer-events-none transition-all duration-150',
+          inspected ? 'border-black' : 'border-neutral-400'
+        )}
       />
     </>
   );
@@ -246,7 +282,12 @@ function SideLayout({ children }: SideLayoutProps) {
   );
 }
 
-function Text({ as: Component = 'p', children, className, ...props }: TextProps) {
+function Text({
+  as: Component = 'p',
+  children,
+  className,
+  ...props
+}: TextProps) {
   return (
     <Component className={cn('text-lg', className)} {...props}>
       {children}
@@ -272,7 +313,7 @@ function List({ children, className }: ListProps) {
     <ul
       className={cn(
         "pl-[2ch] list-disc marker:content-['→'] marker:text-neutral-400 marker:pr-[1ch] space-y-[1ch]",
-        className,
+        className
       )}
     >
       {children}
@@ -282,6 +323,25 @@ function List({ children, className }: ListProps) {
 
 function ListItem({ children }: ListItemProps) {
   return <li className="pl-[1ch]">{children}</li>;
+}
+
+function LockIcon(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      fill="none"
+      viewBox="0 0 24 24"
+      strokeWidth={1.5}
+      stroke="currentColor"
+      {...props}
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z"
+      />
+    </svg>
+  );
 }
 
 export default function Main() {
@@ -302,7 +362,7 @@ export default function Main() {
               width={imgSize}
               height={imgSize}
               onClick={() => setImgSize(imgSize + 10)}
-              onKeyDown={(e) => {
+              onKeyDown={e => {
                 if (e.key === 'Enter') {
                   setImgSize(imgSize + 10);
                 }
@@ -325,7 +385,7 @@ export default function Main() {
               <Text
                 className={cn(
                   'text-muted-foreground opacity-50',
-                  isInspectorEnabled && 'opacity-100',
+                  isInspectorEnabled && 'opacity-100'
                 )}
               >
                 <Link
@@ -396,7 +456,7 @@ onCommitFiberRoot((root) => {
   traverseFiber(root.current, (fiber) => {
     console.log('fiber:', fiber);
   });
-})`),
+})`)
             }}
           />
         </pre>
@@ -442,5 +502,5 @@ onCommitFiberRoot((root) => {
 }
 
 export const Route = createFileRoute('/')({
-  component: Main,
+  component: Main
 });
