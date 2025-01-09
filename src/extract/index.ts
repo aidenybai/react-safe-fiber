@@ -48,6 +48,7 @@ export interface ReactA11ySpecNode extends ReactInteractiveSpecNode {
   type: ReactSpecNodeType.A11y;
   role: string | null;
   ariaLabel: string | null;
+  aria: Record<string, string>;
 }
 
 export interface ReactComponentSpecNode extends BaseReactSpecNode {
@@ -369,6 +370,19 @@ function getEventHandlers(fiber: Fiber): Record<string, string> {
   return eventHandlers;
 }
 
+function getARIA(fiber: Fiber): Record<string, string> {
+  const aria: Record<string, string> = {};
+
+  // TODO megamorphic
+  for (const key in fiber.memoizedProps) {
+    if (/^aria-[a-z]+/.test(key)) {
+      aria[key] = `${fiber.memoizedProps[key]}`;
+    }
+  }
+
+  return aria;
+}
+
 const traverseNode = (
   fiber: Fiber,
   element: Element | null,
@@ -402,6 +416,7 @@ const traverseNode = (
         role,
         ariaLabel,
         element,
+        aria: getARIA(fiber),
         eventHandlers: getEventHandlers(fiber),
         children: [],
       };
