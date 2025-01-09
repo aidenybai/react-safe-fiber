@@ -12,7 +12,7 @@ import {
   traverseFiber,
   traverseRenderedFibers,
 } from '../index.js';
-import { isElementInteractive } from './is-element-interactive.js';
+import { isFiberInteractive } from './is-fiber-interactive.js';
 
 export interface ReactSpecTree {
   root: BaseReactSpecNode;
@@ -217,9 +217,10 @@ export const init = () => {
   };
 
   document.addEventListener('contextmenu', async (event) => {
-    if (event.button !== 2) return;
+    // if (event.button !== 2) return;
     const target = event.target as Element;
-    const fiber = getFiberFromHostInstance(event.target);
+    console.log('TARGET', target);
+    const fiber = getFiberFromHostInstance(target);
 
     focusedElement = target;
     if (fiber) {
@@ -391,10 +392,7 @@ const traverseNode = (
       };
       nodes.push(node);
       traverseChildren(fiber, node.children);
-    } else if (
-      element instanceof HTMLElement &&
-      isElementInteractive(element)
-    ) {
+    } else if (isFiberInteractive(fiber)) {
       const node: ReactInteractiveSpecNode = {
         type: ReactSpecNodeType.Interactive,
         element,
