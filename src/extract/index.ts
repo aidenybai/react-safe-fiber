@@ -500,13 +500,13 @@ export function convertRST2JSON(rst: ReactSpecTree): string {
     { root: transformRSTNode(rst.root) },
     function replacer(key, value) {
       if (typeof value === 'object' && value != null) {
-        if ('$$typeof' in this && (key === '_owner' || key === '_store')) {
-          return;
-        }
         if (cache.has(value)) {
           return undefined;
         }
         cache.add(value);
+        if ('$$typeof' in this && (key === '_owner' || key === '_store')) {
+          return undefined;
+        }
       }
       return value;
     },
