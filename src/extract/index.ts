@@ -250,7 +250,9 @@ export const init = () => {
       }
       text = orderedDisplayNames.join(' > ');
       const rst = createRSTWithFiber(nearestCompositeFiber || fiber, target);
-      console.log(convertRST2JSON(rst));
+      const json = convertRST2JSON(rst);
+      console.log('JSON done', json.length);
+      console.log(json);
     } else {
       focusedFiber = null;
       // text = target.tagName.toLowerCase();
@@ -495,7 +497,6 @@ function transformRSTNode(rst: ReactSpecNode): Record<string, unknown> {
 
 export function convertRST2JSON(rst: ReactSpecTree): string {
   const cache = new Set<unknown>();
-  console.log(rst);
   const result = JSON.stringify(
     { root: transformRSTNode(rst.root) },
     function replacer(key, value) {
@@ -507,6 +508,9 @@ export function convertRST2JSON(rst: ReactSpecTree): string {
         if ('$$typeof' in this && (key === '_owner' || key === '_store')) {
           return undefined;
         }
+      }
+      if (typeof value === 'function') {
+        return `[function ${value.name}]`;
       }
       return value;
     },
@@ -566,7 +570,7 @@ function serializeNode(
   let result = `${current}[label=${label}];`;
 
   if (parent != null) {
-    result += `${parent} -> ${current};`;
+    result += `${parent}->${current};`;
   }
 
   for (let i = 0, len = node.children.length; i < len; i++) {
