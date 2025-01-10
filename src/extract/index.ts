@@ -27,6 +27,7 @@ export enum ReactSpecNodeType {
 
 export interface BaseReactSpecNode {
   type: ReactSpecNodeType;
+  props: Record<string, unknown>;
   children: ReactSpecNode[];
 }
 
@@ -53,7 +54,6 @@ export interface ReactA11ySpecNode extends ReactInteractiveSpecNode {
 
 export interface ReactComponentSpecNode extends BaseReactSpecNode {
   type: ReactSpecNodeType.Component;
-  props: Record<string, unknown>;
   name: string | null;
 }
 
@@ -382,6 +382,17 @@ function getARIA(fiber: Fiber): Record<string, string> {
   return aria;
 }
 
+function getProps(fiber: Fiber): Record<string, unknown> {
+  const props: Record<string, unknown> = {};
+  if (fiber.memoizedProps) {
+    for (const [key, value] of Object.entries(fiber.memoizedProps)) {
+      props[key] = value;
+    }
+  }
+
+  return props;
+}
+
 const traverseNode = (
   fiber: Fiber,
   element: Element | null,
@@ -391,16 +402,9 @@ const traverseNode = (
     const node: ReactComponentSpecNode = {
       type: ReactSpecNodeType.Component,
       name: getDisplayName(fiber),
-      props: {},
+      props: getProps(fiber),
       children: [],
     };
-
-    if (fiber.memoizedProps) {
-      const props = fiber.memoizedProps as Record<string, unknown>;
-      for (const [key, value] of Object.entries(props)) {
-        node.props[key] = value;
-      }
-    }
 
     nodes.push(node);
     traverseChildren(fiber, node.children);
@@ -417,6 +421,7 @@ const traverseNode = (
         element,
         aria: getARIA(fiber),
         eventHandlers: getEventHandlers(fiber),
+        props: getProps(fiber),
         children: [],
       };
       nodes.push(node);
@@ -426,6 +431,7 @@ const traverseNode = (
         type: ReactSpecNodeType.Interactive,
         element,
         eventHandlers: getEventHandlers(fiber),
+        props: getProps(fiber),
         children: [],
       };
       nodes.push(node);
@@ -434,6 +440,7 @@ const traverseNode = (
       const node: ReactElementSpecNode = {
         type: ReactSpecNodeType.Element,
         element,
+        props: getProps(fiber),
         children: [],
       };
       nodes.push(node);
