@@ -250,8 +250,7 @@ export const init = () => {
       }
       text = orderedDisplayNames.join(' > ');
       const rst = createRSTWithFiber(nearestCompositeFiber || fiber, target);
-      console.log(printRSTGraph(rst));
-      console.log(rst);
+      console.log(convertRST2JSON(rst));
     } else {
       focusedFiber = null;
       // text = target.tagName.toLowerCase();
@@ -460,6 +459,54 @@ const traverseChildren = (fiber: Fiber, nodes: ReactSpecNode[]) => {
     child = child.sibling;
   }
 };
+
+function transformRSTNode(rst: ReactSpecNode): Record<string, unknown> {
+  const object: Record<string, unknown> = { ...rst };
+
+  switch (rst.type) {
+    case ReactSpecNodeType.A11y:
+      object.element = rst.element?.nodeName.toLowerCase() || 'unknown';
+      break;
+    case ReactSpecNodeType.Element:
+      object.element = rst.element?.nodeName.toLowerCase() || 'unknown';
+      break;
+    case ReactSpecNodeType.Interactive:
+      object.element = rst.element?.nodeName.toLowerCase() || 'unknown';
+      break;
+  }
+
+  const children: Record<string, unknown>[] = [];
+
+  for (let i = 0, len = rst.children.length; i < len; i++) {
+    children[i] = transformRSTNode(rst.children[i]);
+  }
+
+  object.children = children;
+
+  return object;
+}
+
+export function convertRST2JSON(rst: ReactSpecTree): string {
+  const cache = new Set<unknown>();
+  console.log(rst);
+  const result = JSON.stringify(
+    { root: transformRSTNode(rst.root) },
+    function replacer(key, value) {
+      if (typeof value === 'object' && value != null) {
+        if ('$$typeof' in this && (key === '_owner' || key === '_store')) {
+          return;
+        }
+        if (cache.has(value)) {
+          return undefined;
+        }
+        cache.add(value);
+      }
+      return value;
+    },
+  );
+  cache.clear();
+  return result;
+}
 
 export const getRectMap = (
   elements: Element[],
