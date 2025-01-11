@@ -97,9 +97,7 @@ export const Inspector = ({
     if (!isDialogMode) return;
 
     const explanation = FIBER_PROP_EXPLANATIONS[propName];
-    if (!explanation) return;
-
-    setTooltip(explanation);
+    setTooltip(explanation || null);
   };
 
   const handlePropertyLeave = () => {
@@ -508,6 +506,7 @@ export const Inspector = ({
               return (
                 <span
                   onMouseEnter={(e) => handlePropertyHover(e, props.name)}
+                  onMouseLeave={handlePropertyLeave}
                   style={{
                     cursor: FIBER_PROP_EXPLANATIONS[props.name]
                       ? 'help'
