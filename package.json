@@ -65,7 +65,13 @@
 	"module": "dist/index.js",
 	"browser": "dist/index.global.js",
 	"types": "dist/index.d.ts",
-	"files": ["dist", "bin", "package.json", "README.md", "LICENSE"],
+	"files": [
+		"dist",
+		"bin",
+		"package.json",
+		"README.md",
+		"LICENSE"
+	],
 	"scripts": {
 		"build": "NODE_ENV=production tsup",
 		"dev": "NODE_ENV=development tsup --watch",
@@ -81,6 +87,7 @@
 		"@biomejs/biome": "1.9.4",
 		"@testing-library/dom": "^10.4.0",
 		"@testing-library/react": "^16.1.0",
+		"@types/node": "^20",
 		"@types/react": "^18.3.12",
 		"@types/react-dom": "^19.0.2",
 		"@types/react-reconciler": "^0.28.9",
