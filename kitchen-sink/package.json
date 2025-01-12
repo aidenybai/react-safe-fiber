@@ -11,8 +11,8 @@
 		"@tanstack/react-router": "^1.95.1",
 		"bippy": "^0.2.3",
 		"clsx": "^2.1.1",
-		"react": "^19.0.0",
-		"react-dom": "^19.0.0",
+		"react": "^18.2.0",
+		"react-dom": "^18.2.0",
 		"react-inspector": "^6.0.2",
 		"sugar-high": "^0.7.5",
 		"tailwind-merge": "^2.6.0"

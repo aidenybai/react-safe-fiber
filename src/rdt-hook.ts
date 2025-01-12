@@ -51,8 +51,21 @@ export const installRDTHook = (onActive?: () => unknown) => {
     Object.defineProperty(globalThis, '__REACT_DEVTOOLS_GLOBAL_HOOK__', {
       value: rdtHook,
     });
-  } catch {}
+  } catch {
+    patchRDTHook(onActive);
+  }
   return rdtHook;
+};
+
+export const patchRDTHook = (onActive?: () => unknown) => {
+  try {
+    const currentRDTHook = globalThis.__REACT_DEVTOOLS_GLOBAL_HOOK__;
+    currentRDTHook.checkDCE = checkDCE;
+    currentRDTHook.supportsFiber = true;
+    currentRDTHook.supportsFlight = true;
+    currentRDTHook.hasUnsupportedRendererAttached = false;
+  } catch {}
+  onActive?.();
 };
 
 export const hasRDTHook = () => {
@@ -66,12 +79,11 @@ export const hasRDTHook = () => {
  * Returns the current React DevTools global hook.
  */
 export const getRDTHook = (onActive?: () => unknown) => {
-  let rdtHook = globalThis.__REACT_DEVTOOLS_GLOBAL_HOOK__;
-  if (rdtHook) onActive?.();
-
   if (!hasRDTHook()) {
-    rdtHook = installRDTHook(onActive);
+    return installRDTHook(onActive);
   }
+  const rdtHook = globalThis.__REACT_DEVTOOLS_GLOBAL_HOOK__;
+  patchRDTHook(onActive);
   return rdtHook;
 };
 
