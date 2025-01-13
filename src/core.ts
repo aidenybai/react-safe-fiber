@@ -261,6 +261,53 @@ export const traverseProps = (
   return false;
 };
 
+export type ThenableData =
+  | { status: 'fulfilled'; value: unknown } 
+  | { status: 'rejected'; reason: unknown }
+  | { status: 'pending' };
+
+interface ThenableState {
+  _debugThenableState: ThenableData[] | { thenables: ThenableData[] };
+}
+
+function isThenableState(dependencies: object): dependencies is ThenableState {
+  return '_debugThenableState' in dependencies;
+}
+
+export const getThenables = (fiber: Fiber): ThenableData[] => {
+  if (fiber.dependencies && isThenableState(fiber.dependencies)) {
+    if (Array.isArray(fiber.dependencies._debugThenableState)) {
+      return fiber.dependencies._debugThenableState;
+    }
+    return fiber.dependencies._debugThenableState.thenables;
+  }
+  return [];
+};
+
+/**
+ * Traverses up or down a {@link Fiber}'s props, return `true` to stop and select the current and previous props value.
+ */
+export const traverseThenables = (
+  fiber: Fiber,
+  selector: (
+    prev?: ThenableData,
+    next?: ThenableData,
+    // biome-ignore lint/suspicious/noConfusingVoidType: may or may not exist
+  ) => boolean | void,
+): boolean => {
+  try {
+    const nextThenables = getThenables(fiber);
+    const prevThenables = fiber.alternate ? getThenables(fiber.alternate) : [];
+
+    const maxLength = Math.max(nextThenables.length, prevThenables.length);
+
+    for (let i = 0; i < maxLength; i++) {
+      if (selector(prevThenables[i], nextThenables[i]) === true) return true;
+    }
+  } catch {}
+  return false;
+};
+
 /**
  * Returns `true` if the {@link Fiber} has rendered. Note that this does not mean the fiber has rendered in the current commit, just that it has rendered in the past.
  */
