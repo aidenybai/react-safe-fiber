@@ -5,8 +5,6 @@ const projects = import.meta.glob('./tests/*', {
   eager: false,
 });
 
-console.log(projects);
-
 const PROJECT = 'main';
 
 export const root = ReactDOM.createRoot(document.getElementById('root'));
