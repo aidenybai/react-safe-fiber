@@ -1,23 +1,21 @@
 import {
-  instrument,
-  secure,
-  createFiberVisitor,
-  traverseFiber,
-  getFiberId,
   type Fiber,
   type FiberRoot,
-  isCompositeFiber,
-  traverseProps,
-  isHostFiber,
-  getFiberFromHostInstance,
-  getFiberStack,
   getDisplayName,
-  getNearestHostFiber,
+  getFiberFromHostInstance,
+  getFiberId,
+  getFiberStack,
+  instrument,
+  isCompositeFiber,
+  isHostFiber,
+  secure,
+  traverseFiber,
   traverseRenderedFibers,
 } from '../index.js';
+import { isFiberInteractive } from './is-fiber-interactive.js';
 
 export interface ReactSpecTree {
-  root: BaseReactSpecNode;
+  root: ReactSpecNode;
 }
 
 export enum ReactSpecNodeType {
@@ -29,6 +27,7 @@ export enum ReactSpecNodeType {
 
 export interface BaseReactSpecNode {
   type: ReactSpecNodeType;
+  props: Record<string, unknown>;
   children: ReactSpecNode[];
 }
 
@@ -50,11 +49,11 @@ export interface ReactA11ySpecNode extends ReactInteractiveSpecNode {
   type: ReactSpecNodeType.A11y;
   role: string | null;
   ariaLabel: string | null;
+  aria: Record<string, string>;
 }
 
 export interface ReactComponentSpecNode extends BaseReactSpecNode {
   type: ReactSpecNodeType.Component;
-  props: Record<string, unknown>;
   name: string | null;
 }
 
@@ -219,9 +218,9 @@ export const init = () => {
   };
 
   document.addEventListener('contextmenu', async (event) => {
-    if (event.button !== 2) return;
+    // if (event.button !== 2) return;
     const target = event.target as Element;
-    const fiber = getFiberFromHostInstance(event.target);
+    const fiber = getFiberFromHostInstance(target);
 
     focusedElement = target;
     if (fiber) {
@@ -251,8 +250,9 @@ export const init = () => {
       }
       text = orderedDisplayNames.join(' > ');
       const rst = createRSTWithFiber(nearestCompositeFiber || fiber, target);
-      // console.log(printRST(rst));
-      console.log(rst);
+      const json = convertRST2JSON(rst);
+      console.log('JSON done', json.length);
+      console.log(json);
     } else {
       focusedFiber = null;
       // text = target.tagName.toLowerCase();
@@ -355,6 +355,46 @@ export const createRSTWithFiber = (
   return { root: nodes[0] };
 };
 
+function getEventHandlers(fiber: Fiber): Record<string, string> {
+  const eventHandlers: Record<string, string> = {};
+
+  // TODO megamorphic
+  for (const key in fiber.memoizedProps) {
+    if (
+      /^on[A-Z]/.test(key) &&
+      typeof fiber.memoizedProps[key] === 'function'
+    ) {
+      eventHandlers[key] = fiber.memoizedProps[key].name; // TODO toString()???
+    }
+  }
+
+  return eventHandlers;
+}
+
+function getARIA(fiber: Fiber): Record<string, string> {
+  const aria: Record<string, string> = {};
+
+  // TODO megamorphic
+  for (const key in fiber.memoizedProps) {
+    if (/^aria-[a-z]+/.test(key)) {
+      aria[key] = `${fiber.memoizedProps[key]}`;
+    }
+  }
+
+  return aria;
+}
+
+function getProps(fiber: Fiber): Record<string, unknown> {
+  const props: Record<string, unknown> = {};
+  if (fiber.memoizedProps) {
+    for (const [key, value] of Object.entries(fiber.memoizedProps)) {
+      props[key] = value;
+    }
+  }
+
+  return props;
+}
+
 const traverseNode = (
   fiber: Fiber,
   element: Element | null,
@@ -364,16 +404,9 @@ const traverseNode = (
     const node: ReactComponentSpecNode = {
       type: ReactSpecNodeType.Component,
       name: getDisplayName(fiber),
-      props: {},
+      props: getProps(fiber),
       children: [],
     };
-
-    if (fiber.memoizedProps) {
-      const props = fiber.memoizedProps as Record<string, unknown>;
-      for (const [key, value] of Object.entries(props)) {
-        node.props[key] = value;
-      }
-    }
 
     nodes.push(node);
     traverseChildren(fiber, node.children);
@@ -382,32 +415,25 @@ const traverseNode = (
     const ariaLabel = element.getAttribute('aria-label');
     const hasA11y = role || ariaLabel;
 
-    const isInteractive =
-      element instanceof HTMLButtonElement ||
-      element instanceof HTMLAnchorElement ||
-      element instanceof HTMLInputElement ||
-      element.hasAttribute('onclick') ||
-      element.hasAttribute('onkeydown') ||
-      element.hasAttribute('onkeyup') ||
-      element.hasAttribute('onmousedown') ||
-      element.hasAttribute('onmouseup');
-
     if (hasA11y) {
       const node: ReactA11ySpecNode = {
         type: ReactSpecNodeType.A11y,
         role,
         ariaLabel,
         element,
-        eventHandlers: {},
+        aria: getARIA(fiber),
+        eventHandlers: getEventHandlers(fiber),
+        props: getProps(fiber),
         children: [],
       };
       nodes.push(node);
       traverseChildren(fiber, node.children);
-    } else if (isInteractive) {
+    } else if (isFiberInteractive(fiber)) {
       const node: ReactInteractiveSpecNode = {
         type: ReactSpecNodeType.Interactive,
         element,
-        eventHandlers: {},
+        eventHandlers: getEventHandlers(fiber),
+        props: getProps(fiber),
         children: [],
       };
       nodes.push(node);
@@ -416,6 +442,7 @@ const traverseNode = (
       const node: ReactElementSpecNode = {
         type: ReactSpecNodeType.Element,
         element,
+        props: getProps(fiber),
         children: [],
       };
       nodes.push(node);
@@ -442,6 +469,56 @@ const traverseChildren = (fiber: Fiber, nodes: ReactSpecNode[]) => {
   }
 };
 
+function transformRSTNode(rst: ReactSpecNode): Record<string, unknown> {
+  const object: Record<string, unknown> = { ...rst };
+
+  switch (rst.type) {
+    case ReactSpecNodeType.A11y:
+      object.element = rst.element?.nodeName.toLowerCase() || 'unknown';
+      break;
+    case ReactSpecNodeType.Element:
+      object.element = rst.element?.nodeName.toLowerCase() || 'unknown';
+      break;
+    case ReactSpecNodeType.Interactive:
+      object.element = rst.element?.nodeName.toLowerCase() || 'unknown';
+      break;
+  }
+
+  const children: Record<string, unknown>[] = [];
+
+  for (let i = 0, len = rst.children.length; i < len; i++) {
+    children[i] = transformRSTNode(rst.children[i]);
+  }
+
+  object.children = children;
+
+  return object;
+}
+
+export function convertRST2JSON(rst: ReactSpecTree): string {
+  const cache = new Set<unknown>();
+  const result = JSON.stringify(
+    { root: transformRSTNode(rst.root) },
+    function replacer(key, value) {
+      if (typeof value === 'object' && value != null) {
+        if (cache.has(value)) {
+          return undefined;
+        }
+        cache.add(value);
+        if ('$$typeof' in this && (key === '_owner' || key === '_store')) {
+          return undefined;
+        }
+      }
+      if (typeof value === 'function') {
+        return `[function ${value.name}]`;
+      }
+      return value;
+    },
+  );
+  cache.clear();
+  return result;
+}
+
 export const getRectMap = (
   elements: Element[],
 ): Promise<Map<Element, DOMRect>> => {
@@ -466,3 +543,44 @@ export const getRectMap = (
     }
   });
 };
+
+function serializeNode(
+  node: ReactSpecNode,
+  id: { size: number },
+  parent?: number,
+) {
+  let label: string;
+  switch (node.type) {
+    case ReactSpecNodeType.Component:
+      label = node.name || 'unknown';
+      break;
+    case ReactSpecNodeType.A11y:
+      label = node.element?.tagName.toLowerCase() || 'unknown';
+      break;
+    case ReactSpecNodeType.Element:
+      label = node.element?.tagName.toLowerCase() || 'unknown';
+      break;
+    case ReactSpecNodeType.Interactive:
+      label = node.element?.tagName.toLowerCase() || 'unknown';
+      break;
+  }
+
+  const current = id.size;
+
+  let result = `${current}[label=${label}];`;
+
+  if (parent != null) {
+    result += `${parent}->${current};`;
+  }
+
+  for (let i = 0, len = node.children.length; i < len; i++) {
+    id.size++;
+    result += serializeNode(node.children[i], id, current);
+  }
+
+  return result;
+}
+
+export function printRSTGraph(tree: ReactSpecTree): string {
+  return `digraph G { ${serializeNode(tree.root, { size: 0 })} }`;
+}
